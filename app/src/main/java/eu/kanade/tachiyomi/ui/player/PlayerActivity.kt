@@ -70,6 +70,7 @@ import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.torrent.service.TorrentServerService
+import eu.kanade.tachiyomi.AdManager
 import eu.kanade.tachiyomi.databinding.PlayerLayoutBinding
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
@@ -231,6 +232,7 @@ class PlayerActivity : BaseActivity() {
         enableEdgeToEdge()
         registerSecureActivity(this)
         super.onCreate(savedInstanceState)
+        AdManager.showInterstitial(this) {}
         setContentView(binding.root)
 
         setupPlayerMPV()
@@ -995,65 +997,75 @@ class PlayerActivity : BaseActivity() {
      * @param autoPlay whether the episode is switching due to auto play
      */
     internal fun changeEpisode(episodeId: Long?, autoPlay: Boolean = false) {
-        viewModel.sheetShown.update { _ -> Sheets.None }
-        viewModel.panelShown.update { _ -> Panels.None }
-        viewModel.pause()
-        viewModel.isLoading.update { _ -> true }
-        viewModel.resetState()
+        // Show an interstitial ad before each episode transition.
+        // Skip in PiP mode to avoid disrupting the picture-in-picture experience.
+        val doChange = {
+            viewModel.sheetShown.update { _ -> Sheets.None }
+            viewModel.panelShown.update { _ -> Panels.None }
+            viewModel.pause()
+            viewModel.isLoading.update { _ -> true }
+            viewModel.resetState()
 
-        lifecycleScope.launch {
-            viewModel.updateIsLoadingEpisode(true)
-            viewModel.updateIsLoadingHosters(true)
-            viewModel.cancelHosterVideoLinksJob()
+            lifecycleScope.launch {
+                viewModel.updateIsLoadingEpisode(true)
+                viewModel.updateIsLoadingHosters(true)
+                viewModel.cancelHosterVideoLinksJob()
 
-            val pipEpisodeToasts = playerPreferences.pipEpisodeToasts().get()
-            val switchMethod = viewModel.loadEpisode(episodeId)
+                val pipEpisodeToasts = playerPreferences.pipEpisodeToasts().get()
+                val switchMethod = viewModel.loadEpisode(episodeId)
 
-            viewModel.updateIsLoadingHosters(false)
+                viewModel.updateIsLoadingHosters(false)
 
-            when (switchMethod) {
-                null -> {
-                    if (viewModel.currentAnime.value != null && !autoPlay) {
-                        launchUI { toast(AYMR.strings.no_next_episode) }
-                    }
-                    viewModel.isLoading.update { _ -> false }
-                }
-
-                else -> {
-                    if (switchMethod.hosterList != null) {
-                        when {
-                            switchMethod.hosterList.isEmpty() -> setInitialEpisodeError(
-                                PlayerViewModel.ExceptionWithStringResource(
-                                    "Hoster list is empty",
-                                    AYMR.strings.no_hosters,
-                                ),
-                            )
-                            else -> {
-                                viewModel.loadHosters(
-                                    source = switchMethod.source,
-                                    hosterList = switchMethod.hosterList,
-                                    hosterIndex = -1,
-                                    videoIndex = -1,
-                                )
-                            }
+                when (switchMethod) {
+                    null -> {
+                        if (viewModel.currentAnime.value != null && !autoPlay) {
+                            launchUI { toast(AYMR.strings.no_next_episode) }
                         }
-                    } else {
-                        logcat(LogPriority.ERROR) { "Error getting links" }
+                        viewModel.isLoading.update { _ -> false }
                     }
 
-                    if (isInPictureInPictureMode && pipEpisodeToasts) {
-                        launchUI { toast(switchMethod.episodeTitle) }
+                    else -> {
+                        if (switchMethod.hosterList != null) {
+                            when {
+                                switchMethod.hosterList.isEmpty() -> setInitialEpisodeError(
+                                    PlayerViewModel.ExceptionWithStringResource(
+                                        "Hoster list is empty",
+                                        AYMR.strings.no_hosters,
+                                    ),
+                                )
+                                else -> {
+                                    viewModel.loadHosters(
+                                        source = switchMethod.source,
+                                        hosterList = switchMethod.hosterList,
+                                        hosterIndex = -1,
+                                        videoIndex = -1,
+                                    )
+                                }
+                            }
+                        } else {
+                            logcat(LogPriority.ERROR) { "Error getting links" }
+                        }
+
+                        if (isInPictureInPictureMode && pipEpisodeToasts) {
+                            launchUI { toast(switchMethod.episodeTitle) }
+                        }
                     }
                 }
             }
+
+            viewModel.updateHasPreviousEpisode(
+                viewModel.getCurrentEpisodeIndex() != 0,
+            )
+            viewModel.updateHasNextEpisode(
+                viewModel.getCurrentEpisodeIndex() != viewModel.currentPlaylist.value.size - 1,
+            )
         }
 
-        viewModel.updateHasPreviousEpisode(
-            viewModel.getCurrentEpisodeIndex() != 0,
-        )
-        viewModel.updateHasNextEpisode(
-            viewModel.getCurrentEpisodeIndex() != viewModel.currentPlaylist.value.size - 1,
-        )
+        if (isInPictureInPictureMode) {
+            doChange()
+        } else {
+            AdManager.showInterstitial(this, onAdClosed = doChange)
+        }
     }
 
     fun setVideo(video: Video?, position: Long? = null) {

@@ -310,6 +310,9 @@ dependencies {
     implementation(aniyomilibs.seeker)
     // true type parser
     implementation(aniyomilibs.truetypeparser)
+    
+    // AdMob
+    implementation(libs.play.services.ads)
 }
 
 androidComponents {

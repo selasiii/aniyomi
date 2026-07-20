@@ -53,6 +53,7 @@ import eu.kanade.presentation.reader.ReaderPageActionsDialog
 import eu.kanade.presentation.reader.ReadingModeSelectDialog
 import eu.kanade.presentation.reader.appbars.ReaderAppBars
 import eu.kanade.presentation.reader.settings.ReaderSettingsDialog
+import eu.kanade.tachiyomi.AdManager
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.common.Constants
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
@@ -156,6 +157,7 @@ class ReaderActivity : BaseActivity() {
         }
 
         super.onCreate(savedInstanceState)
+        AdManager.showInterstitial(this) {}
 
         binding = ReaderActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -291,17 +293,19 @@ class ReaderActivity : BaseActivity() {
      * delegated to the presenter.
      */
     override fun finish() {
-        viewModel.onActivityFinish()
-        super.finish()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            overrideActivityTransition(
-                Activity.OVERRIDE_TRANSITION_CLOSE,
-                R.anim.shared_axis_x_pop_enter,
-                R.anim.shared_axis_x_pop_exit,
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            overridePendingTransition(R.anim.shared_axis_x_pop_enter, R.anim.shared_axis_x_pop_exit)
+        AdManager.showInterstitial(this) {
+            viewModel.onActivityFinish()
+            super.finish()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                overrideActivityTransition(
+                    Activity.OVERRIDE_TRANSITION_CLOSE,
+                    R.anim.shared_axis_x_pop_enter,
+                    R.anim.shared_axis_x_pop_exit,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(R.anim.shared_axis_x_pop_enter, R.anim.shared_axis_x_pop_exit)
+            }
         }
     }
 
@@ -662,9 +666,11 @@ class ReaderActivity : BaseActivity() {
      * should be automatically shown.
      */
     private fun loadNextChapter() {
-        lifecycleScope.launch {
-            viewModel.loadNextChapter()
-            moveToPageIndex(0)
+        AdManager.showInterstitial(this) {
+            lifecycleScope.launch {
+                viewModel.loadNextChapter()
+                moveToPageIndex(0)
+            }
         }
     }
 
@@ -673,9 +679,11 @@ class ReaderActivity : BaseActivity() {
      * should be automatically shown.
      */
     private fun loadPreviousChapter() {
-        lifecycleScope.launch {
-            viewModel.loadPreviousChapter()
-            moveToPageIndex(0)
+        AdManager.showInterstitial(this) {
+            lifecycleScope.launch {
+                viewModel.loadPreviousChapter()
+                moveToPageIndex(0)
+            }
         }
     }
 
