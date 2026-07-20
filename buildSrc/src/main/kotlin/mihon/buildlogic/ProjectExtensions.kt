@@ -1,16 +1,13 @@
 package mihon.buildlogic
 
-import com.android.build.api.dsl.CommonExtension
-import org.gradle.accessors.dm.LibrariesForAndroidx
-import org.gradle.accessors.dm.LibrariesForCompose
-import org.gradle.accessors.dm.LibrariesForKotlinx
-import org.gradle.accessors.dm.LibrariesForLibs
+import com.android.build.gradle.BaseExtension
 import org.gradle.api.Project
+import org.gradle.api.artifacts.VersionCatalog
+import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
-import org.gradle.kotlin.dsl.provideDelegate
 import org.gradle.kotlin.dsl.the
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
@@ -18,15 +15,20 @@ import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.File
 
-val Project.androidx get() = the<LibrariesForAndroidx>()
-val Project.compose get() = the<LibrariesForCompose>()
-val Project.kotlinx get() = the<LibrariesForKotlinx>()
-val Project.libs get() = the<LibrariesForLibs>()
+val Project.libsCatalog: VersionCatalog get() = the<VersionCatalogsExtension>().named("libs")
+val Project.androidxCatalog: VersionCatalog get() = the<VersionCatalogsExtension>().named("androidx")
+val Project.composeCatalog: VersionCatalog get() = the<VersionCatalogsExtension>().named("compose")
+val Project.kotlinxCatalog: VersionCatalog get() = the<VersionCatalogsExtension>().named("kotlinx")
 
-internal fun Project.configureAndroid(commonExtension: CommonExtension<*, *, *, *, *, *>) {
-    commonExtension.apply {
-        compileSdk = AndroidConfig.COMPILE_SDK
-        buildToolsVersion = AndroidConfig.BUILD_TOOLS
+internal fun Project.configureAndroid() {
+    if (!pluginManager.hasPlugin("org.jetbrains.kotlin.multiplatform")) {
+        pluginManager.apply("org.jetbrains.kotlin.android")
+    }
+
+    val android = extensions.getByType(BaseExtension::class.java)
+    android.apply {
+        compileSdkVersion(AndroidConfig.COMPILE_SDK)
+        buildToolsVersion(AndroidConfig.BUILD_TOOLS)
 
         defaultConfig {
             minSdk = AndroidConfig.MIN_SDK
@@ -52,27 +54,27 @@ internal fun Project.configureAndroid(commonExtension: CommonExtension<*, *, *, 
 
             // Treat all Kotlin warnings as errors (disabled by default)
             // Override by setting warningsAsErrors=true in your ~/.gradle/gradle.properties
-            val warningsAsErrors: String? by project
+            val warningsAsErrors = project.findProperty("warningsAsErrors")?.toString()
             allWarningsAsErrors.set(warningsAsErrors.toBoolean())
 
         }
     }
 
     dependencies {
-        "coreLibraryDesugaring"(libs.desugar)
+        "coreLibraryDesugaring"(libsCatalog.findLibrary("desugar").get().get())
     }
 }
 
-internal fun Project.configureCompose(commonExtension: CommonExtension<*, *, *, *, *, *>) {
-    pluginManager.apply(kotlinx.plugins.compose.compiler.get().pluginId)
+internal fun Project.configureCompose() {
+    val composeCompilerPluginId = kotlinxCatalog.findPlugin("compose-compiler").get().get().pluginId
+    pluginManager.apply(composeCompilerPluginId)
 
-    commonExtension.apply {
-        buildFeatures {
-            compose = true
-        }
+    val android = extensions.getByType(BaseExtension::class.java)
+    android.apply {
+        buildFeatures.compose = true
 
         dependencies {
-            "implementation"(platform(compose.bom))
+            "implementation"(platform(composeCatalog.findLibrary("bom").get().get()))
         }
     }
 

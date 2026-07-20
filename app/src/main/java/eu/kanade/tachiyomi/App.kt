@@ -172,11 +172,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             old = preference.get(),
             new = BuildConfig.VERSION_CODE,
             migrations = migrations,
-            onMigrationComplete = {
-                logcat { "Updating last version to ${BuildConfig.VERSION_CODE}" }
-                preference.set(BuildConfig.VERSION_CODE)
-            },
-        )
+        ) {
+            logcat { "Updating last version to ${BuildConfig.VERSION_CODE}" }
+            preference.set(BuildConfig.VERSION_CODE)
+        }
     }
 
     override fun newImageLoader(context: Context): ImageLoader {
@@ -247,7 +246,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         private var registered = false
 
         override fun onReceive(context: Context, intent: Intent) {
-            basePreferences.incognitoMode().set(false)
+            basePreferences.incognitoMode().set(value = false)
         }
 
         fun register() {

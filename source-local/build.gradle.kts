@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
 plugins {
-    id("mihon.library")
     kotlin("multiplatform")
+    id("mihon.library")
 }
 
 kotlin {

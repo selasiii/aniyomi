@@ -1,18 +1,20 @@
 import mihon.buildlogic.AndroidConfig
 import mihon.buildlogic.configureAndroid
 import mihon.buildlogic.configureTest
+import com.android.build.gradle.AppExtension
 
 plugins {
-    id("com.android.application")
-    kotlin("android")
-
     id("mihon.code.lint")
 }
 
-android {
+pluginManager.apply("com.android.application")
+pluginManager.apply("org.jetbrains.kotlin.android")
+
+configure<AppExtension> {
     defaultConfig {
         targetSdk = AndroidConfig.TARGET_SDK
     }
-    configureAndroid(this)
-    configureTest()
 }
+
+configureAndroid()
+configureTest()

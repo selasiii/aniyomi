@@ -2,12 +2,10 @@ import mihon.buildlogic.configureAndroid
 import mihon.buildlogic.configureTest
 
 plugins {
-    id("com.android.library")
-
     id("mihon.code.lint")
 }
 
-android {
-    configureAndroid(this)
-    configureTest()
-}
+pluginManager.apply("com.android.library")
+
+configureAndroid()
+configureTest()
